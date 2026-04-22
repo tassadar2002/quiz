@@ -42,21 +42,32 @@ function QuestionRow({ q, revalidateHref }: { q: Q; revalidateHref: string }) {
   const [correctIndex, setCorrectIndex] = useState(q.correctIndex);
   const [explanation, setExplanation] = useState(q.explanation);
   const [category, setCategory] = useState<Category>(q.category);
+  const [error, setError] = useState<string | null>(null);
 
   function save() {
+    setError(null);
     startTransition(async () => {
-      await updateQuestion(
-        { id: q.id, stem, options, correctIndex, explanation, category },
-        revalidateHref,
-      );
-      setEditing(false);
+      try {
+        await updateQuestion(
+          { id: q.id, stem, options, correctIndex, explanation, category },
+          revalidateHref,
+        );
+        setEditing(false);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '保存失败');
+      }
     });
   }
 
   function remove() {
     if (!confirm('删除这道题？')) return;
+    setError(null);
     startTransition(async () => {
-      await deleteQuestion(q.id, revalidateHref);
+      try {
+        await deleteQuestion(q.id, revalidateHref);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '删除失败');
+      }
     });
   }
 
@@ -100,6 +111,7 @@ function QuestionRow({ q, revalidateHref }: { q: Q; revalidateHref: string }) {
           value={explanation}
           onChange={(e) => setExplanation(e.target.value)}
         />
+        {error && <p className="text-sm text-danger">{error}</p>}
         <div className="flex gap-2">
           <button className="btn-primary" disabled={pending} onClick={save}>
             保存
@@ -140,6 +152,7 @@ function QuestionRow({ q, revalidateHref }: { q: Q; revalidateHref: string }) {
         ))}
       </ul>
       <p className="text-sm text-ink-700">{q.explanation}</p>
+      {error && <p className="text-sm text-danger">{error}</p>}
     </li>
   );
 }

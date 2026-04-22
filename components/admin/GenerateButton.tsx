@@ -84,7 +84,12 @@ export function GenerateButton({
     }
 
     if (done && !errored) {
-      // Small delay so user can see the final "done" state before navigating
+      // refresh() purges the client Router Cache so the subsequent push
+      // fetches the review page's RSC payload fresh. Without it, a recently
+      // visited review route may be served from cache with stale question
+      // ids (the ones we just DELETE'd), and inline edits on those rows
+      // silently no-op.
+      router.refresh();
       setTimeout(() => router.push(reviewHref), 600);
     }
   }

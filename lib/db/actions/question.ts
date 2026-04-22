@@ -33,7 +33,7 @@ export async function updateQuestion(
 ) {
   await requireAdmin();
   const data = UpdateInput.parse(input);
-  await db
+  const updated = await db
     .update(schema.question)
     .set({
       stem: data.stem,
@@ -42,12 +42,26 @@ export async function updateQuestion(
       explanation: data.explanation,
       category: data.category,
     })
-    .where(eq(schema.question.id, data.id));
+    .where(eq(schema.question.id, data.id))
+    .returning({ id: schema.question.id });
+  if (updated.length === 0) {
+    throw new Error(
+      '该题目不存在，可能已被重新生成覆盖。请刷新后再试。',
+    );
+  }
   revalidatePath(revalidateHref);
 }
 
 export async function deleteQuestion(id: string, revalidateHref: string) {
   await requireAdmin();
-  await db.delete(schema.question).where(eq(schema.question.id, id));
+  const deleted = await db
+    .delete(schema.question)
+    .where(eq(schema.question.id, id))
+    .returning({ id: schema.question.id });
+  if (deleted.length === 0) {
+    throw new Error(
+      '该题目不存在，可能已被重新生成覆盖。请刷新后再试。',
+    );
+  }
   revalidatePath(revalidateHref);
 }

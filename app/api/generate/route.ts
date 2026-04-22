@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth/guard';
 import { db, schema } from '@/lib/db/client';
 import { and, eq } from 'drizzle-orm';
@@ -92,6 +93,23 @@ export async function POST(req: NextRequest) {
                 orderIndex: i,
               })),
             );
+            // Invalidate any cached RSC payload for the review page so the
+            // admin sees the NEW question ids after regeneration. Without
+            // this, router.push to the review page may serve a stale payload
+            // whose ids no longer exist in the DB — inline edits on those
+            // stale rows then silently update zero rows.
+            const reviewPath =
+              ownerType === 'title'
+                ? `/admin/titles/${ownerId}/review`
+                : `/admin/chapters/${ownerId}/review`;
+            const editPath =
+              ownerType === 'title'
+                ? `/admin/titles/${ownerId}`
+                : `/admin/chapters/${ownerId}`;
+            // revalidatePath requires Next's request store, which is absent
+            // when this route is invoked by vitest. Swallow the invariant.
+            try { revalidatePath(reviewPath); } catch {}
+            try { revalidatePath(editPath); } catch {}
             send({ type: 'done', count: event.response.questions.length });
           } catch (err) {
             console.error('persist failed', err);
