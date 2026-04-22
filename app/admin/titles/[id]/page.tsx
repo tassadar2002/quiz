@@ -2,7 +2,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getTitle } from '@/lib/db/actions/title';
 import { listChapters, deleteChapter } from '@/lib/db/actions/chapter';
+import { getSourceMaterial } from '@/lib/db/actions/source-material';
 import { ChapterForm } from '@/components/admin/ChapterForm';
+import { SourceMaterialEditor } from '@/components/admin/SourceMaterialEditor';
 
 export default async function TitlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -17,9 +19,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
       <header>
         <h1 className="text-2xl font-bold">{t.name}</h1>
         <p className="text-sm text-ink-700">
-          {t.isLong
-            ? '长内容：按章节管理'
-            : '短内容：原文与题目将在 Task 13/17 接入'}
+          {t.isLong ? '长内容：按章节管理' : '短内容：在本页直接粘贴原文、生成题目'}
           · {t.status === 'published' ? '已发布' : '草稿'}
         </p>
       </header>
@@ -33,11 +33,26 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
           </section>
         </>
       ) : (
-        <section className="card">
-          <p className="text-ink-700">短内容的原文编辑器将在下一个任务接入。</p>
-        </section>
+        <SourceMaterialSection ownerType="title" ownerId={t.id} />
       )}
     </div>
+  );
+}
+
+async function SourceMaterialSection({
+  ownerType,
+  ownerId,
+}: {
+  ownerType: 'title' | 'chapter';
+  ownerId: string;
+}) {
+  const sm = await getSourceMaterial(ownerType, ownerId);
+  return (
+    <SourceMaterialEditor
+      ownerType={ownerType}
+      ownerId={ownerId}
+      initialText={sm?.text ?? ''}
+    />
   );
 }
 
