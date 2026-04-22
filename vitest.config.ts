@@ -9,6 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    exclude: ['node_modules/**', 'tests/e2e/**', '.next/**'],
     env: {
       SESSION_SECRET: 'x'.repeat(32),
       ADMIN_PASSWORD: 'test-password',
