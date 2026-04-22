@@ -5,6 +5,7 @@ import { listChapters, deleteChapter } from '@/lib/db/actions/chapter';
 import { getSourceMaterial } from '@/lib/db/actions/source-material';
 import { ChapterForm } from '@/components/admin/ChapterForm';
 import { SourceMaterialEditor } from '@/components/admin/SourceMaterialEditor';
+import { GenerateButton } from '@/components/admin/GenerateButton';
 
 export default async function TitlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -33,7 +34,22 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
           </section>
         </>
       ) : (
-        <SourceMaterialSection ownerType="title" ownerId={t.id} />
+        <>
+          <SourceMaterialSection ownerType="title" ownerId={t.id} />
+          <div className="flex items-center gap-3">
+            <GenerateButton
+              ownerType="title"
+              ownerId={t.id}
+              reviewHref={`/admin/titles/${t.id}/review`}
+            />
+            <a
+              href={`/admin/titles/${t.id}/review`}
+              className="text-sm text-primary-700 hover:underline"
+            >
+              查看已有题目 →
+            </a>
+          </div>
+        </>
       )}
     </div>
   );

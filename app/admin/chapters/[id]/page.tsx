@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getChapter } from '@/lib/db/actions/chapter';
 import { getSourceMaterial } from '@/lib/db/actions/source-material';
 import { SourceMaterialEditor } from '@/components/admin/SourceMaterialEditor';
+import { GenerateButton } from '@/components/admin/GenerateButton';
 
 export default async function ChapterPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,6 +26,19 @@ export default async function ChapterPage({ params }: { params: Promise<{ id: st
         ownerId={id}
         initialText={sm?.text ?? ''}
       />
+      <div className="flex items-center gap-3">
+        <GenerateButton
+          ownerType="chapter"
+          ownerId={id}
+          reviewHref={`/admin/chapters/${id}/review`}
+        />
+        <a
+          href={`/admin/chapters/${id}/review`}
+          className="text-sm text-primary-700 hover:underline"
+        >
+          查看已有题目 →
+        </a>
+      </div>
     </div>
   );
 }
