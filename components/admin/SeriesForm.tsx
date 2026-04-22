@@ -5,7 +5,7 @@ export function SeriesForm() {
     <form action={createSeries} className="card space-y-3">
       <h2 className="font-semibold">新建系列</h2>
       <div className="flex gap-3">
-        <select name="kind" className="input" defaultValue="book">
+        <select name="kind" className="input !w-28 shrink-0" defaultValue="book">
           <option value="book">书籍</option>
           <option value="animation">动画</option>
         </select>

@@ -5,7 +5,34 @@ import { and, eq } from 'drizzle-orm';
 import { resetForTest as resetCostGuard } from '@/lib/cost-guard';
 import { POST as generate } from '@/app/api/generate/route';
 
-describe('/api/generate integration (fake AI, bypassed auth)', () => {
+type StreamEvent =
+  | { type: 'chunk'; text: string }
+  | { type: 'done'; count: number }
+  | { type: 'error'; message: string };
+
+async function collectStreamEvents(res: Response): Promise<StreamEvent[]> {
+  expect(res.body).toBeTruthy();
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  const events: StreamEvent[] = [];
+  let buffer = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let idx = buffer.indexOf('\n\n');
+    while (idx !== -1) {
+      const raw = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+      idx = buffer.indexOf('\n\n');
+      if (!raw.startsWith('data: ')) continue;
+      events.push(JSON.parse(raw.slice(6)) as StreamEvent);
+    }
+  }
+  return events;
+}
+
+describe('/api/generate integration (fake AI, bypassed auth, SSE stream)', () => {
   let seriesId: string;
   let titleId: string;
 
@@ -53,9 +80,19 @@ describe('/api/generate integration (fake AI, bypassed auth)', () => {
     expect(res.status).toBe(400);
   });
 
-  it('generates 10 questions and persists them', async () => {
+  it('streams chunks and a done event; persists 10 questions', async () => {
     const res = await generate(req({ ownerType: 'title', ownerId: titleId }));
     expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/event-stream');
+    const events = await collectStreamEvents(res);
+    const chunks = events.filter((e) => e.type === 'chunk');
+    const done = events.find((e) => e.type === 'done');
+    const errors = events.filter((e) => e.type === 'error');
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(errors).toHaveLength(0);
+    expect(done).toBeDefined();
+    expect(done!.type === 'done' && done!.count).toBe(10);
+
     const rows = await db
       .select()
       .from(schema.question)
@@ -71,21 +108,26 @@ describe('/api/generate integration (fake AI, bypassed auth)', () => {
   });
 
   it('replaces existing questions on re-generation', async () => {
-    await generate(req({ ownerType: 'title', ownerId: titleId }));
-    // wait past owner lock
+    await collectStreamEvents(
+      await generate(req({ ownerType: 'title', ownerId: titleId })),
+    );
     resetCostGuard();
-    await generate(req({ ownerType: 'title', ownerId: titleId }));
+    await collectStreamEvents(
+      await generate(req({ ownerType: 'title', ownerId: titleId })),
+    );
     const rows = await db
       .select()
       .from(schema.question)
       .where(
         and(eq(schema.question.ownerType, 'title'), eq(schema.question.ownerId, titleId)),
       );
-    expect(rows).toHaveLength(10); // not 20
+    expect(rows).toHaveLength(10);
   });
 
   it('enforces owner lock within 30s window', async () => {
-    await generate(req({ ownerType: 'title', ownerId: titleId }));
+    await collectStreamEvents(
+      await generate(req({ ownerType: 'title', ownerId: titleId })),
+    );
     const res = await generate(req({ ownerType: 'title', ownerId: titleId }));
     expect(res.status).toBe(429);
   });

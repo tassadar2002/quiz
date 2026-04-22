@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireAdmin } from '@/lib/auth/guard';
 import { db, schema } from '@/lib/db/client';
 import { and, eq } from 'drizzle-orm';
-import { generateQuestions, GenerateError } from '@/lib/ai/generate';
+import { generateQuestionsStream } from '@/lib/ai/generate';
 import { acquireGenerateSlot } from '@/lib/cost-guard';
 import { wordCount } from '@/lib/utils/word-count';
 import { z } from 'zod';
@@ -51,31 +51,71 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: map[slot.reason] }, { status: 429 });
   }
 
-  try {
-    const result = await generateQuestions(sm.text);
-    await db
-      .delete(schema.question)
-      .where(
-        and(eq(schema.question.ownerType, ownerType), eq(schema.question.ownerId, ownerId)),
-      );
-    await db.insert(schema.question).values(
-      result.questions.map((q, i) => ({
-        ownerType,
-        ownerId,
-        category: q.category,
-        stem: q.stem,
-        options: q.options,
-        correctIndex: q.correct_index,
-        explanation: q.explanation,
-        orderIndex: i,
-      })),
-    );
-    return NextResponse.json({ ok: true, count: result.questions.length });
-  } catch (err) {
-    if (err instanceof GenerateError) {
-      return NextResponse.json({ error: err.message }, { status: 502 });
-    }
-    console.error('generate failed', err);
-    return NextResponse.json({ error: '内部错误' }, { status: 500 });
-  }
+  const encoder = new TextEncoder();
+  const text = sm.text;
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (payload: unknown) => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+      };
+      try {
+        for await (const event of generateQuestionsStream(text)) {
+          if (event.type === 'chunk') {
+            send({ type: 'chunk', text: event.text });
+            continue;
+          }
+          if (event.type === 'error') {
+            send({ type: 'error', message: event.message });
+            controller.close();
+            return;
+          }
+          // done — persist and emit final event
+          try {
+            await db
+              .delete(schema.question)
+              .where(
+                and(
+                  eq(schema.question.ownerType, ownerType),
+                  eq(schema.question.ownerId, ownerId),
+                ),
+              );
+            await db.insert(schema.question).values(
+              event.response.questions.map((q, i) => ({
+                ownerType,
+                ownerId,
+                category: q.category,
+                stem: q.stem,
+                options: q.options,
+                correctIndex: q.correct_index,
+                explanation: q.explanation,
+                orderIndex: i,
+              })),
+            );
+            send({ type: 'done', count: event.response.questions.length });
+          } catch (err) {
+            console.error('persist failed', err);
+            send({ type: 'error', message: '写入数据库失败' });
+          }
+        }
+      } catch (err) {
+        console.error('stream failed', err);
+        send({
+          type: 'error',
+          message: err instanceof Error ? err.message : '内部错误',
+        });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    },
+  });
 }
