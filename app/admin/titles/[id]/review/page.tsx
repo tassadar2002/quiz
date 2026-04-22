@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getTitle } from '@/lib/db/actions/title';
 import { listQuestions } from '@/lib/db/actions/question';
+import { parseOptions } from '@/lib/db/question-helpers';
 import { QuestionReviewList } from '@/components/admin/QuestionReviewList';
 import { PublishButton } from '@/components/admin/PublishButton';
 
@@ -21,7 +22,7 @@ export default async function TitleReview({
     ownerId: q.ownerId,
     category: q.category,
     stem: q.stem,
-    options: q.options as string[],
+    options: parseOptions(q.options),
     correctIndex: q.correctIndex,
     explanation: q.explanation,
     orderIndex: q.orderIndex,

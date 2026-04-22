@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getChapter } from '@/lib/db/actions/chapter';
 import { listQuestions } from '@/lib/db/actions/question';
+import { parseOptions } from '@/lib/db/question-helpers';
 import { QuestionReviewList } from '@/components/admin/QuestionReviewList';
 import { PublishButton } from '@/components/admin/PublishButton';
 
@@ -21,7 +22,7 @@ export default async function ChapterReview({
     ownerId: q.ownerId,
     category: q.category,
     stem: q.stem,
-    options: q.options as string[],
+    options: parseOptions(q.options),
     correctIndex: q.correctIndex,
     explanation: q.explanation,
     orderIndex: q.orderIndex,

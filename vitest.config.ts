@@ -1,6 +1,11 @@
 import { defineConfig } from 'vitest/config';
 import path from 'node:path';
 
+// Shell env takes precedence over these defaults. If you run
+//   DATABASE_URL=postgresql://my-other-host/other pnpm test
+// that value wins.
+const withDefault = (key: string, fallback: string) => process.env[key] ?? fallback;
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -11,14 +16,17 @@ export default defineConfig({
     environment: 'node',
     exclude: ['node_modules/**', 'tests/e2e/**', '.next/**'],
     env: {
-      SESSION_SECRET: 'x'.repeat(32),
-      ADMIN_PASSWORD: 'test-password',
-      DATABASE_URL: 'postgresql://quiz:quiz@localhost:5432/quiz_test',
-      LLM_BASE_URL: 'https://example.invalid',
-      LLM_API_KEY: 'test',
-      LLM_MODEL: 'fake',
-      USE_FAKE_AI: 'true',
-      TEST_BYPASS_AUTH: 'true',
+      SESSION_SECRET: withDefault('SESSION_SECRET', 'x'.repeat(32)),
+      ADMIN_PASSWORD: withDefault('ADMIN_PASSWORD', 'test-password'),
+      DATABASE_URL: withDefault(
+        'DATABASE_URL',
+        'postgresql://quiz:quiz@localhost:5432/quiz_test',
+      ),
+      LLM_BASE_URL: withDefault('LLM_BASE_URL', 'https://example.invalid'),
+      LLM_API_KEY: withDefault('LLM_API_KEY', 'test'),
+      LLM_MODEL: withDefault('LLM_MODEL', 'fake'),
+      USE_FAKE_AI: withDefault('USE_FAKE_AI', 'true'),
+      TEST_BYPASS_AUTH: withDefault('TEST_BYPASS_AUTH', 'true'),
     },
   },
 });

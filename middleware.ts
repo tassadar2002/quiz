@@ -6,7 +6,10 @@ const PROTECTED_API = ['/api/generate', '/api/regenerate-one', '/api/upload'];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const isAdminPage = pathname.startsWith('/admin') && pathname !== '/admin/login';
+  // Treat /admin/login, /admin/login/, and /admin/login?... as the public login page.
+  const isLoginPage =
+    pathname === '/admin/login' || pathname.startsWith('/admin/login/');
+  const isAdminPage = pathname.startsWith('/admin') && !isLoginPage;
   const isProtectedApi = PROTECTED_API.some((p) => pathname.startsWith(p));
   if (!isAdminPage && !isProtectedApi) return NextResponse.next();
 

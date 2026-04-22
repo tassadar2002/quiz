@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getPublicChapter, getQuestionsForOwner } from '@/lib/db/queries/kid';
+import { parseOptions } from '@/lib/db/question-helpers';
 import { QuizRunner } from '@/components/kid/QuizRunner';
 
 export default async function ChapterQuiz({
@@ -24,7 +25,7 @@ export default async function ChapterQuiz({
         questions={qs.map((q) => ({
           id: q.id,
           stem: q.stem,
-          options: q.options as string[],
+          options: parseOptions(q.options),
           category: q.category,
         }))}
       />

@@ -26,6 +26,22 @@ export async function getChapter(id: string) {
   return row ?? null;
 }
 
+async function revalidateForChapter(id: string) {
+  const c = await getChapter(id);
+  if (!c) return;
+  const [t] = await db
+    .select({ seriesId: schema.title.seriesId })
+    .from(schema.title)
+    .where(eq(schema.title.id, c.titleId))
+    .limit(1);
+  if (t) {
+    revalidatePath('/');
+    revalidatePath(`/s/${t.seriesId}`);
+  }
+  revalidatePath(`/t/${c.titleId}`);
+  revalidatePath(`/c/${id}/quiz`);
+}
+
 export async function createChapter(form: FormData) {
   await requireAdmin();
   const input = CreateInput.parse({
@@ -40,6 +56,8 @@ export async function deleteChapter(id: string, titleId: string) {
   await requireAdmin();
   await db.delete(schema.chapter).where(eq(schema.chapter.id, id));
   revalidatePath(`/admin/titles/${titleId}`);
+  revalidatePath(`/t/${titleId}`);
+  revalidatePath('/');
 }
 
 export async function publishChapter(id: string) {
@@ -55,10 +73,12 @@ export async function publishChapter(id: string) {
   }
   await db.update(schema.chapter).set({ status: 'published' }).where(eq(schema.chapter.id, id));
   revalidatePath(`/admin/chapters/${id}`);
+  await revalidateForChapter(id);
 }
 
 export async function unpublishChapter(id: string) {
   await requireAdmin();
   await db.update(schema.chapter).set({ status: 'draft' }).where(eq(schema.chapter.id, id));
   revalidatePath(`/admin/chapters/${id}`);
+  await revalidateForChapter(id);
 }

@@ -3,6 +3,7 @@
 import { db, schema } from '@/lib/db/client';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { parseOptions } from '@/lib/db/question-helpers';
 
 const AnswerSchema = z.object({
   questionId: z.string().uuid(),
@@ -51,7 +52,7 @@ export async function gradeQuiz(input: GradeInput): Promise<GradeResult> {
   for (const ans of parsed.answers) {
     const q = byId.get(ans.questionId);
     if (!q) continue;
-    const options = q.options as string[];
+    const options = parseOptions(q.options);
     const chosenIndex = options.indexOf(ans.chosenOptionText);
     const correct = chosenIndex === q.correctIndex;
     if (correct) {

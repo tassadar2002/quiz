@@ -13,19 +13,23 @@ export function SourceMaterialEditor({
   initialText: string;
 }) {
   const [text, setText] = useState(initialText);
+  const [savedBase, setSavedBase] = useState(initialText);
   const [pending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
   const words = wordCount(text);
   const tooShort = words < 50 && text.length > 0;
   const tooLong = words > 20_000;
+  const dirty = text !== savedBase;
 
   async function onSave() {
+    if (!dirty) return;
     const form = new FormData();
     form.set('ownerType', ownerType);
     form.set('ownerId', ownerId);
     form.set('text', text);
     startTransition(async () => {
       await saveSourceMaterial(form);
+      setSavedBase(text);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     });
@@ -50,8 +54,8 @@ export function SourceMaterialEditor({
         </p>
       )}
       <div className="flex items-center gap-2">
-        <button className="btn-primary" disabled={pending} onClick={onSave}>
-          {pending ? '保存中…' : '保存原文'}
+        <button className="btn-primary" disabled={pending || !dirty} onClick={onSave}>
+          {pending ? '保存中…' : dirty ? '保存原文' : '已保存'}
         </button>
         {saved && <span className="text-xs text-success">已保存</span>}
       </div>

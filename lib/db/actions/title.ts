@@ -11,7 +11,7 @@ const MIN_QUESTIONS_TO_PUBLISH = 3;
 const CreateInput = z.object({
   seriesId: z.string().uuid(),
   name: z.string().min(1).max(300),
-  isLong: z.coerce.boolean().default(false),
+  isLong: z.boolean().default(false),
 });
 
 export async function listTitles(seriesId: string) {
@@ -25,6 +25,15 @@ export async function listTitles(seriesId: string) {
 export async function getTitle(id: string) {
   const [row] = await db.select().from(schema.title).where(eq(schema.title.id, id)).limit(1);
   return row ?? null;
+}
+
+async function revalidateForTitle(id: string) {
+  const t = await getTitle(id);
+  if (t) {
+    revalidatePath('/');
+    revalidatePath(`/s/${t.seriesId}`);
+    revalidatePath(`/t/${id}`);
+  }
 }
 
 export async function createTitle(form: FormData) {
@@ -42,6 +51,8 @@ export async function deleteTitle(id: string, seriesId: string) {
   await requireAdmin();
   await db.delete(schema.title).where(eq(schema.title.id, id));
   revalidatePath(`/admin/series/${seriesId}`);
+  revalidatePath('/');
+  revalidatePath(`/s/${seriesId}`);
 }
 
 export async function publishTitle(id: string) {
@@ -65,10 +76,12 @@ export async function publishTitle(id: string) {
   }
   await db.update(schema.title).set({ status: 'published' }).where(eq(schema.title.id, id));
   revalidatePath(`/admin/titles/${id}`);
+  await revalidateForTitle(id);
 }
 
 export async function unpublishTitle(id: string) {
   await requireAdmin();
   await db.update(schema.title).set({ status: 'draft' }).where(eq(schema.title.id, id));
   revalidatePath(`/admin/titles/${id}`);
+  await revalidateForTitle(id);
 }
