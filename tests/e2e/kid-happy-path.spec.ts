@@ -5,8 +5,8 @@ test('kid completes a short-title quiz and sees results', async ({ page }) => {
   await seedKidData();
 
   await page.goto('/');
-  await expect(page.getByText('E2E Series (auto-cleaned)')).toBeVisible();
-  await page.getByText('E2E Series (auto-cleaned)').click();
+  await expect(page.getByText('__e2e_sentinel_9f3b_do_not_edit__')).toBeVisible();
+  await page.getByText('__e2e_sentinel_9f3b_do_not_edit__').click();
   await page.getByText('E2E Short Title').click();
   await page.getByRole('link', { name: '开始 Quiz' }).click();
 
