@@ -1,0 +1,53 @@
+'use server';
+
+import { db, schema } from '@/lib/db/client';
+import { eq, asc } from 'drizzle-orm';
+import { requireAdmin } from '@/lib/auth/guard';
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+
+const CreateInput = z.object({
+  titleId: z.string().uuid(),
+  name: z.string().min(1).max(300),
+});
+
+export async function listChapters(titleId: string) {
+  return db
+    .select()
+    .from(schema.chapter)
+    .where(eq(schema.chapter.titleId, titleId))
+    .orderBy(asc(schema.chapter.orderIndex), asc(schema.chapter.createdAt));
+}
+
+export async function getChapter(id: string) {
+  const [row] = await db.select().from(schema.chapter).where(eq(schema.chapter.id, id)).limit(1);
+  return row ?? null;
+}
+
+export async function createChapter(form: FormData) {
+  await requireAdmin();
+  const input = CreateInput.parse({
+    titleId: form.get('titleId'),
+    name: form.get('name'),
+  });
+  await db.insert(schema.chapter).values(input);
+  revalidatePath(`/admin/titles/${input.titleId}`);
+}
+
+export async function deleteChapter(id: string, titleId: string) {
+  await requireAdmin();
+  await db.delete(schema.chapter).where(eq(schema.chapter.id, id));
+  revalidatePath(`/admin/titles/${titleId}`);
+}
+
+export async function publishChapter(id: string) {
+  await requireAdmin();
+  await db.update(schema.chapter).set({ status: 'published' }).where(eq(schema.chapter.id, id));
+  revalidatePath(`/admin/chapters/${id}`);
+}
+
+export async function unpublishChapter(id: string) {
+  await requireAdmin();
+  await db.update(schema.chapter).set({ status: 'draft' }).where(eq(schema.chapter.id, id));
+  revalidatePath(`/admin/chapters/${id}`);
+}
