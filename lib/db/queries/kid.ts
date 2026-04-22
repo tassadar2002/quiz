@@ -65,7 +65,36 @@ export async function listPublicChapters(titleId: string) {
 export async function getPublicTitle(id: string) {
   const [row] = await db.select().from(schema.title).where(eq(schema.title.id, id)).limit(1);
   if (!row) return null;
-  if (!row.isLong && row.status !== 'published') return null;
+  if (!row.isLong) {
+    // Short title: must be published AND have >= 3 questions
+    if (row.status !== 'published') return null;
+    const [{ n }] = await db
+      .select({
+        n: sql<number>`count(*)::int`,
+      })
+      .from(schema.question)
+      .where(
+        and(eq(schema.question.ownerType, 'title'), eq(schema.question.ownerId, row.id)),
+      );
+    if ((n ?? 0) < 3) return null;
+    return row;
+  }
+  // Long title: status is effectively ignored; gate on having at least
+  // one published chapter with >= 3 questions.
+  const [{ n }] = await db
+    .select({
+      n: sql<number>`count(*)::int`,
+    })
+    .from(schema.chapter)
+    .where(
+      and(
+        eq(schema.chapter.titleId, row.id),
+        eq(schema.chapter.status, 'published'),
+        sql`(SELECT count(*) FROM ${schema.question} q
+             WHERE q.owner_type = 'chapter' AND q.owner_id = ${schema.chapter.id}) >= 3`,
+      ),
+    );
+  if ((n ?? 0) === 0) return null;
   return row;
 }
 

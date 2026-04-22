@@ -1,10 +1,12 @@
 'use server';
 
 import { db, schema } from '@/lib/db/client';
-import { eq, asc } from 'drizzle-orm';
+import { and, eq, asc, sql } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/auth/guard';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+
+const MIN_QUESTIONS_TO_PUBLISH = 3;
 
 const CreateInput = z.object({
   seriesId: z.string().uuid(),
@@ -44,6 +46,23 @@ export async function deleteTitle(id: string, seriesId: string) {
 
 export async function publishTitle(id: string) {
   await requireAdmin();
+  const [row] = await db
+    .select({ isLong: schema.title.isLong })
+    .from(schema.title)
+    .where(eq(schema.title.id, id))
+    .limit(1);
+  if (!row) throw new Error('title not found');
+  if (!row.isLong) {
+    const [{ n }] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(schema.question)
+      .where(
+        and(eq(schema.question.ownerType, 'title'), eq(schema.question.ownerId, id)),
+      );
+    if ((n ?? 0) < MIN_QUESTIONS_TO_PUBLISH) {
+      throw new Error(`发布需要至少 ${MIN_QUESTIONS_TO_PUBLISH} 道题`);
+    }
+  }
   await db.update(schema.title).set({ status: 'published' }).where(eq(schema.title.id, id));
   revalidatePath(`/admin/titles/${id}`);
 }

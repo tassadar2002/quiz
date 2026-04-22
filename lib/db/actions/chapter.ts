@@ -1,10 +1,12 @@
 'use server';
 
 import { db, schema } from '@/lib/db/client';
-import { eq, asc } from 'drizzle-orm';
+import { and, eq, asc, sql } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/auth/guard';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+
+const MIN_QUESTIONS_TO_PUBLISH = 3;
 
 const CreateInput = z.object({
   titleId: z.string().uuid(),
@@ -42,6 +44,15 @@ export async function deleteChapter(id: string, titleId: string) {
 
 export async function publishChapter(id: string) {
   await requireAdmin();
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(schema.question)
+    .where(
+      and(eq(schema.question.ownerType, 'chapter'), eq(schema.question.ownerId, id)),
+    );
+  if ((n ?? 0) < MIN_QUESTIONS_TO_PUBLISH) {
+    throw new Error(`发布需要至少 ${MIN_QUESTIONS_TO_PUBLISH} 道题`);
+  }
   await db.update(schema.chapter).set({ status: 'published' }).where(eq(schema.chapter.id, id));
   revalidatePath(`/admin/chapters/${id}`);
 }
