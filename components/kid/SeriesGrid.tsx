@@ -4,7 +4,6 @@ type Series = {
   id: string;
   title: string;
   kind: 'book' | 'animation';
-  coverUrl: string | null;
 };
 
 export function SeriesGrid({ items }: { items: Series[] }) {

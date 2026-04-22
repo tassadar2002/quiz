@@ -8,6 +8,13 @@
       "when": 1776879923105,
       "tag": "0000_yummy_black_crow",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776885593817,
+      "tag": "0001_premium_white_tiger",
+      "breakpoints": true
     }
   ]
 }

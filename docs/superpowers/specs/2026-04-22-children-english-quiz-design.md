@@ -172,8 +172,8 @@ question {
 
 ### 5.1 孩子端组件
 
-- **`<SeriesGrid>`**：卡片网格，每张卡片显示封面（无封面时显示标题字形占位）+ 标题 + 系列类型图标
-- **`<TitleList>`**：系列页内列表项；带封面、标题、副标题；若 `is_long=true` 在右上角标「章节」
+- **`<SeriesGrid>`**：卡片网格，每张卡片显示类型图标（📚 / 🎬）+ 标题
+- **`<TitleList>`**：系列页内列表项；显示标题 + 副标题；若 `is_long=true` 在右上角标「章节」
 - **`<ChapterList>`**：长 title 内的章节列表；不展示"做过/没做过"状态（因为不存进度）
 - **`<QuizRunner>`**：核心做题组件 + 结果视图合并在同一个 client component
   - 初始化时：取所有题 → 打乱题目顺序 → 每题内部再打乱选项顺序（记录 `shuffledToOriginalIndex` 映射以核对答案）
@@ -491,7 +491,6 @@ quiz/
 
 - 文件上传（PDF / EPUB / SRT）与解析
 - 单题重新生成（`/api/regenerate-one` + UI）
-- 封面图上传（Supabase Storage）
 
 ### 13.3 Phase 3（看实际用过后的需求）
 

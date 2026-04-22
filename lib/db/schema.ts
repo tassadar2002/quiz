@@ -24,7 +24,6 @@ export const series = pgTable('series', {
   id: uuid('id').defaultRandom().primaryKey(),
   kind: seriesKindEnum('kind').notNull(),
   title: varchar('title', { length: 200 }).notNull(),
-  coverUrl: text('cover_url'),
   description: text('description'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -37,7 +36,6 @@ export const title = pgTable(
       .notNull()
       .references(() => series.id, { onDelete: 'cascade' }),
     name: varchar('name', { length: 300 }).notNull(),
-    coverUrl: text('cover_url'),
     orderIndex: integer('order_index').default(0).notNull(),
     isLong: boolean('is_long').default(false).notNull(),
     status: publishStatusEnum('status').default('draft').notNull(),
