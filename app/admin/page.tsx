@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { listSeries, deleteSeries } from '@/lib/db/actions/series';
 import { SeriesForm } from '@/components/admin/SeriesForm';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminDashboard() {
   const rows = await listSeries();
   return (

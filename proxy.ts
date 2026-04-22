@@ -4,7 +4,7 @@ import { sessionOptions, type AdminSession } from '@/lib/auth/session';
 
 const PROTECTED_API = ['/api/generate', '/api/regenerate-one', '/api/upload'];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   // Treat /admin/login, /admin/login/, and /admin/login?... as the public login page.
   const isLoginPage =

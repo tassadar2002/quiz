@@ -1,6 +1,8 @@
 import { listPublicSeries } from '@/lib/db/queries/kid';
 import { SeriesGrid } from '@/components/kid/SeriesGrid';
 
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const all = await listPublicSeries();
   const books = all.filter((s) => s.kind === 'book');
