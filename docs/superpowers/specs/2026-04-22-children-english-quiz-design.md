@@ -8,7 +8,7 @@
 
 ## 1. 背景与目标
 
-自用级的 Web 应用，帮助 8 岁儿童在读英文书籍 / 看英文动画片后做配套选择题，巩固词汇、句型与阅读理解。题目由 LLM（Claude-兼容的 OpenAI SDK 接口，默认 DeepSeek）基于管理员提供的原文自动生成，管理员审核后发布到孩子端。
+自用级的 Web 应用，帮助 8 岁儿童在读英文书籍 / 看英文动画片后做配套选择题，巩固词汇、句型与阅读理解。题目由 OpenAI 兼容接口的 LLM（默认 DeepSeek，可通过 env 切换任一兼容 provider）基于管理员提供的原文自动生成，管理员审核后发布到孩子端。
 
 ### 明确在范围内
 
@@ -142,7 +142,7 @@ question {
 | `/t/[titleId]` | Title 详情：`is_long=false` 则显示「开始 Quiz」按钮；`is_long=true` 则显示章节列表 |
 | `/t/[titleId]/quiz` | 短内容 Quiz 页（仅 `is_long=false`） |
 | `/c/[chapterId]/quiz` | 章节 Quiz 页 |
-| `/result` | 结果页（通过 React 状态传递本次答卷，不持久化） |
+| `/result` | 直接访问时显示"无本次答卷"引导；实际结果视图内嵌在 `/t/.../quiz` 或 `/c/.../quiz` 页中，通过 React state 切换视图阶段（见 Section 5.1） |
 
 ### 4.2 管理员端（`/admin/*`，middleware 检查 session）
 
@@ -175,10 +175,10 @@ question {
 - **`<SeriesGrid>`**：卡片网格，每张卡片显示封面（无封面时显示标题字形占位）+ 标题 + 系列类型图标
 - **`<TitleList>`**：系列页内列表项；带封面、标题、副标题；若 `is_long=true` 在右上角标「章节」
 - **`<ChapterList>`**：长 title 内的章节列表；不展示"做过/没做过"状态（因为不存进度）
-- **`<QuizRunner>`**：核心做题组件
+- **`<QuizRunner>`**：核心做题组件 + 结果视图合并在同一个 client component
   - 初始化时：取所有题 → 打乱题目顺序 → 每题内部再打乱选项顺序（记录 `shuffledToOriginalIndex` 映射以核对答案）
-  - 状态：`currentIndex`、`answers[]`（每项是"用户选择的原始 index"）
-  - 无即时反馈；10 题答完跳转 `/result` 并通过 React 状态/context 传递 `answers` 和打乱结果
+  - 状态：`phase: 'quiz' | 'result'`、`currentIndex`、`answers[]`（每项是"用户选择的原始 index"）
+  - 无即时反馈；10 题答完后**不跳路由**，把 `phase` 切到 `'result'`，在同一页面渲染 `<ResultScreen>`（避免跨路由传大 state）
 - **`<ResultScreen>`**：显示总分（如 `8 / 10`）+ 错题列表；错题可点击展开看题干、三个选项、正确答案、中文 AI 解释
 
 ### 5.2 管理员端组件
@@ -228,7 +228,7 @@ question {
 8. 每题必须有 `explanation`（中文）：说明正确答案为什么对、其他选项错在哪、以及相关的语法或词汇知识点
 9. 输出严格 JSON，无额外注释/Markdown
 
-**用户消息**：原文全文 + 如有管理员自定义提示（如"多出点形容词题"）。
+**用户消息**：原文全文。批量生成接口（`/api/generate`）不接管理员自定义提示；自定义提示词仅用在 `/api/regenerate-one` 重生单题的场景。
 
 **完整 prompt 模板在 `lib/ai/prompts.ts`**。
 
@@ -477,21 +477,21 @@ quiz/
 
 1. 项目脚手架 + Tailwind 主题（清爽学院风）
 2. Drizzle schema + Supabase 连接
-3. 管理员登录（iron-session）
+3. 管理员登录（iron-session） + 登录失败限流
 4. 系列 / title / chapter CRUD
 5. 粘贴文本保存为 `source_material`
 6. `/api/generate`（接 DeepSeek）+ Zod 校验 + 重试
-7. 管理员题目审核页（inline 编辑 + 删除）
-8. 整组发布
-9. 孩子端：首页 → 系列 → title / chapter → Quiz → 结果页（含错题解释）
-10. 基本测试覆盖（关键单元 + 1 条孩子端 E2E）
+7. **费用防刷**：owner 级 30s 锁 + 全局天级 `MAX_GENERATIONS_PER_DAY`（生产一上线就要有）
+8. 管理员题目审核页（inline 编辑 + 删除）
+9. 整组发布
+10. 孩子端：首页 → 系列 → title / chapter → Quiz → 结果页（含错题解释）
+11. 基本测试覆盖（关键单元 + 1 条孩子端 E2E）
 
 ### 13.2 Phase 2
 
 - 文件上传（PDF / EPUB / SRT）与解析
-- 单题重新生成
+- 单题重新生成（`/api/regenerate-one` + UI）
 - 封面图上传（Supabase Storage）
-- 费用防刷的每日限额与 owner 级 30s 锁
 
 ### 13.3 Phase 3（看实际用过后的需求）
 
@@ -504,7 +504,7 @@ quiz/
 
 ## 14. 待确认项 / 注意事项
 
-- 孩子端 Quiz 结果页通过 React Context 或 URL search params 传递本次答卷 —— 刷新页面会丢失（可接受，因为不做进度持久化）
+- 孩子端 Quiz 结果页实现：把 `QuizRunner` 和 `ResultScreen` 都放在同一个 client component 里，用 React state 在两个"视图阶段"之间切换（不走真正的路由跳转），结果数据保留在内存。刷新页面会丢失（可接受，因为不做进度持久化）。`/result` 作为独立路由只在用户直接访问时显示"没有可展示的结果，请从头开始" 的引导
 - 文件上传解析依赖 Node runtime；Next.js App Router 的 `/api/upload` 路由必须配置 `export const runtime = 'nodejs'`
 - LLM 提示词里嵌入原文可能触发"内容安全"策略（某些国产模型对受版权保护的长文本敏感）；若发现问题 → 在 prompt 开头说明"用于语言教学目的，请基于此文本生成练习题"；仍不行则退回 Claude 官方 API
 - DeepSeek 的 `response_format=json_object` 支持度需要在实现时实测验证；若不稳，可退回"要求模型输出 JSON + 我方手动 parse"模式
