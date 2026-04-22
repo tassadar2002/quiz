@@ -1,26 +1,61 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-ink-50: #f8fafc;
+  --color-ink-100: #f1f5f9;
+  --color-ink-200: #e2e8f0;
+  --color-ink-700: #334155;
+  --color-ink-900: #0f172a;
+
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+
+  --color-accent-400: #22d3ee;
+  --color-accent-500: #06b6d4;
+
+  --color-success: #16a34a;
+  --color-danger: #dc2626;
+
+  --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  --radius-card: 12px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    background-color: var(--color-ink-50);
+    color: var(--color-ink-900);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    font-family: var(--font-sans);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center
+           rounded-[var(--radius-card)] bg-primary-600 px-4 py-2 text-white
+           font-medium shadow-sm transition
+           hover:bg-primary-700
+           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center
+           rounded-[var(--radius-card)] border border-ink-200 bg-white
+           px-4 py-2 text-ink-700 font-medium transition
+           hover:bg-ink-100;
+  }
+  .card {
+    @apply rounded-[var(--radius-card)] border border-ink-200 bg-white p-4 shadow-sm;
+  }
+  .input {
+    @apply w-full rounded-[var(--radius-card)] border border-ink-200 bg-white
+           px-3 py-2 text-ink-900
+           focus:outline-none focus:ring-2 focus:ring-primary-500;
+  }
 }
