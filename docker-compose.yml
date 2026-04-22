@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: quiz
+      POSTGRES_PASSWORD: quiz
+      POSTGRES_DB: quiz
+    ports:
+      - "5432:5432"
+    volumes:
+      - quiz-pg-data:/var/lib/postgresql/data
+
+volumes:
+  quiz-pg-data:
