@@ -31,3 +31,47 @@ export function buildUserPrompt(sourceText: string): string {
 ${sourceText}
 </source>`;
 }
+
+export const REGEN_ONE_SYSTEM_PROMPT = `你是"英文儿童读物出题助手"。服务对象是 8 岁左右的中国儿童，目标语言是英语。
+
+本次任务：为一段原文中的某一道题生成一道替代题，**只出 1 道**。规则：
+
+1. 生成的题必须和指定的类别 (vocab / sentence / reading) 相同。
+2. 避免与"其他现有题"在考察点上重合（包括考察相同的单词、相同的句子、相同的细节）。
+3. 其他规则（难度匹配、避开过于基础的词/句型、reading 绑定具体细节、explanation 用中文）均与批量出题一致。
+4. 如果用户给了 hint，优先照着 hint 的方向调整（例如"换个更难的词""考察定语从句"）。
+5. 输出严格 JSON，结构为:
+
+{
+  "category": "vocab" | "sentence" | "reading",
+  "stem": "英文题干",
+  "options": ["...", "...", "..."],
+  "correct_index": 0,
+  "explanation": "中文解释"
+}
+
+不要返回数组，不要包裹 questions 字段。绝对不要 Markdown 代码块。`;
+
+export function buildRegenOneUserPrompt(params: {
+  sourceText: string;
+  targetCategory: 'vocab' | 'sentence' | 'reading';
+  existingOtherStems: string[];
+  userHint?: string;
+}): string {
+  const { sourceText, targetCategory, existingOtherStems, userHint } = params;
+  const others = existingOtherStems.length
+    ? existingOtherStems.map((s, i) => `${i + 1}. ${s}`).join('\n')
+    : '(无)';
+  const hintLine = userHint?.trim()
+    ? `\n\n用户补充提示：${userHint.trim()}`
+    : '';
+  return `目标类别：${targetCategory}
+
+原文：
+<source>
+${sourceText}
+</source>
+
+其他已有题目的题干（避免与它们重合）：
+${others}${hintLine}`;
+}

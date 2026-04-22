@@ -1,6 +1,7 @@
 'use client';
 import { useState, useTransition } from 'react';
 import { updateQuestion, deleteQuestion } from '@/lib/db/actions/question';
+import { regenerateOne } from '@/lib/db/actions/regenerate-one';
 
 type Category = 'vocab' | 'sentence' | 'reading';
 
@@ -43,6 +44,26 @@ function QuestionRow({ q, revalidateHref }: { q: Q; revalidateHref: string }) {
   const [explanation, setExplanation] = useState(q.explanation);
   const [category, setCategory] = useState<Category>(q.category);
   const [error, setError] = useState<string | null>(null);
+
+  const [regenOpen, setRegenOpen] = useState(false);
+  const [regenHint, setRegenHint] = useState('');
+  const [regenPending, startRegen] = useTransition();
+
+  function regen() {
+    setError(null);
+    startRegen(async () => {
+      const res = await regenerateOne(
+        { questionId: q.id, userHint: regenHint || undefined },
+        revalidateHref,
+      );
+      if (!res.ok) {
+        setError(res.error);
+      } else {
+        setRegenOpen(false);
+        setRegenHint('');
+      }
+    });
+  }
 
   function save() {
     setError(null);
@@ -136,6 +157,13 @@ function QuestionRow({ q, revalidateHref }: { q: Q; revalidateHref: string }) {
             编辑
           </button>
           <button
+            className="btn-ghost text-xs"
+            onClick={() => setRegenOpen((o) => !o)}
+            disabled={regenPending}
+          >
+            {regenOpen ? '取消重生' : '重新生成'}
+          </button>
+          <button
             className="btn-ghost text-xs text-danger"
             disabled={pending}
             onClick={remove}
@@ -144,6 +172,24 @@ function QuestionRow({ q, revalidateHref }: { q: Q; revalidateHref: string }) {
           </button>
         </div>
       </div>
+      {regenOpen && (
+        <div className="space-y-2 border-t border-ink-200 pt-2">
+          <input
+            className="input text-sm"
+            placeholder='可选提示，如"换个更难的词" / "考察定语从句"'
+            value={regenHint}
+            onChange={(e) => setRegenHint(e.target.value)}
+          />
+          <div className="flex items-center gap-2">
+            <button className="btn-primary text-xs" disabled={regenPending} onClick={regen}>
+              {regenPending ? 'AI 生成中…' : `重新生成（${q.category}）`}
+            </button>
+            <span className="text-xs text-ink-700">
+              将替换这一题，不影响其他 9 题
+            </span>
+          </div>
+        </div>
+      )}
       <ul className="ml-2 space-y-1 text-sm">
         {q.options.map((opt, i) => (
           <li key={i} className={i === q.correctIndex ? 'text-success font-medium' : ''}>

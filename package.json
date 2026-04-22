@@ -18,9 +18,11 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
+    "epub2": "^3.0.2",
     "iron-session": "^8.0.4",
     "next": "16.2.4",
     "openai": "^6.34.0",
+    "pdf-parse": "^2.4.5",
     "postgres": "^3.4.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",

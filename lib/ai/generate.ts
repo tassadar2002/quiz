@@ -1,6 +1,16 @@
 import { getLLMClient, getModelName } from './client';
-import { SYSTEM_PROMPT, buildUserPrompt } from './prompts';
-import { GenerateResponseSchema, type GenerateResponse } from './schema';
+import {
+  SYSTEM_PROMPT,
+  buildUserPrompt,
+  REGEN_ONE_SYSTEM_PROMPT,
+  buildRegenOneUserPrompt,
+} from './prompts';
+import {
+  GenerateResponseSchema,
+  QuestionSchema,
+  type GenerateResponse,
+  type GeneratedQuestion,
+} from './schema';
 import { fakeGenerateResponse } from './fake';
 
 const MAX_RETRIES = 2;
@@ -51,6 +61,50 @@ async function generateOnce(sourceText: string): Promise<GenerateResponse> {
   if (!content) throw new Error('empty completion');
   const parsed = JSON.parse(content);
   return GenerateResponseSchema.parse(parsed);
+}
+
+export async function regenerateOneQuestion(params: {
+  sourceText: string;
+  targetCategory: 'vocab' | 'sentence' | 'reading';
+  existingOtherStems: string[];
+  userHint?: string;
+}): Promise<GeneratedQuestion> {
+  if (process.env.USE_FAKE_AI === 'true') {
+    return {
+      category: params.targetCategory,
+      stem: `[fake regen ${params.targetCategory}] What is a new example from the text?`,
+      options: ['option A (regen)', 'option B (regen)', 'option C (regen)'],
+      correct_index: 1,
+      explanation: `假的单题重新生成结果（${params.targetCategory}）。`,
+    };
+  }
+
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const client = getLLMClient();
+      const model = getModelName();
+      const res = await client.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: REGEN_ONE_SYSTEM_PROMPT },
+          { role: 'user', content: buildRegenOneUserPrompt(params) },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.7,
+      });
+      const content = res.choices[0]?.message?.content;
+      if (!content) throw new Error('empty completion');
+      const parsed = JSON.parse(content);
+      return QuestionSchema.parse(parsed);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < MAX_RETRIES) {
+        await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt]));
+      }
+    }
+  }
+  throw new GenerateError('AI 生成失败（重试后仍未得到合法结果）', { cause: lastErr });
 }
 
 export type StreamEvent =
