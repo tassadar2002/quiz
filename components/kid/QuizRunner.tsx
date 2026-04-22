@@ -1,38 +1,75 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { shuffle } from '@/lib/utils/shuffle';
+import { gradeQuiz, type GradeResult } from '@/lib/db/actions/grade';
 
 type Q = {
   id: string;
   stem: string;
   options: string[];
-  correctIndex: number;
-  explanation: string;
   category: 'vocab' | 'sentence' | 'reading';
 };
 
-type ShuffledQ = Q & { displayedOptions: string[]; displayedToOriginal: number[] };
+type ShuffledQ = Q & { displayedOptions: string[] };
 
 const LETTER = ['A', 'B', 'C'];
 
-export function QuizRunner({ questions }: { questions: Q[] }) {
+export function QuizRunner({
+  questions,
+  ownerType,
+  ownerId,
+}: {
+  questions: Q[];
+  ownerType: 'title' | 'chapter';
+  ownerId: string;
+}) {
   const shuffled = useMemo<ShuffledQ[]>(() => {
-    return shuffle(questions).map((q) => {
-      const indices = shuffle([0, 1, 2]);
-      return {
-        ...q,
-        displayedOptions: indices.map((i) => q.options[i]!),
-        displayedToOriginal: indices,
-      };
-    });
+    return shuffle(questions).map((q) => ({
+      ...q,
+      displayedOptions: shuffle(q.options),
+    }));
   }, [questions]);
 
-  const [phase, setPhase] = useState<'quiz' | 'result'>('quiz');
+  const [phase, setPhase] = useState<'quiz' | 'grading' | 'result'>('quiz');
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<number[]>([]);
+  const [chosenTexts, setChosenTexts] = useState<string[]>([]);
+  const [result, setResult] = useState<GradeResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   if (questions.length === 0) {
     return <p className="text-ink-700">这组题目还没准备好。</p>;
+  }
+
+  async function submit(finalChoices: string[]) {
+    setPhase('grading');
+    setError(null);
+    try {
+      const res = await gradeQuiz({
+        ownerType,
+        ownerId,
+        answers: shuffled.map((q, i) => ({
+          questionId: q.id,
+          chosenOptionText: finalChoices[i]!,
+        })),
+      });
+      setResult(res);
+      setPhase('result');
+    } catch {
+      setError('评分失败，请重试。');
+      setPhase('quiz');
+    }
+  }
+
+  function restart() {
+    setPhase('quiz');
+    setCurrentIndex(0);
+    setChosenTexts([]);
+    setResult(null);
+    setError(null);
+  }
+
+  if (phase === 'grading') {
+    return <p className="text-ink-700">评分中…</p>;
   }
 
   if (phase === 'quiz') {
@@ -43,18 +80,18 @@ export function QuizRunner({ questions }: { questions: Q[] }) {
           第 {currentIndex + 1} / {shuffled.length} 题
         </div>
         <h2 className="text-xl font-semibold">{q.stem}</h2>
+        {error && <p className="text-sm text-danger">{error}</p>}
         <ul className="space-y-2">
           {q.displayedOptions.map((opt, i) => (
             <li key={i}>
               <button
                 className="card w-full text-left hover:border-primary-500"
                 onClick={() => {
-                  const next = [...answers, i];
+                  const next = [...chosenTexts, opt];
+                  setChosenTexts(next);
                   if (next.length === shuffled.length) {
-                    setAnswers(next);
-                    setPhase('result');
+                    void submit(next);
                   } else {
-                    setAnswers(next);
                     setCurrentIndex(currentIndex + 1);
                   }
                 }}
@@ -69,41 +106,26 @@ export function QuizRunner({ questions }: { questions: Q[] }) {
     );
   }
 
-  const results = shuffled.map((q, i) => {
-    const displayedAns = answers[i]!;
-    const originalAns = q.displayedToOriginal[displayedAns]!;
-    const correct = originalAns === q.correctIndex;
-    return { q, displayedAns, originalAns, correct };
-  });
-  const score = results.filter((r) => r.correct).length;
-
+  // phase === 'result'
+  if (!result) return null;
   return (
     <div className="space-y-6">
       <div className="card text-center">
         <p className="text-2xl font-bold">
-          得分 {score} / {shuffled.length}
+          得分 {result.score} / {result.total}
         </p>
       </div>
       <h2 className="text-lg font-semibold">错题</h2>
-      {results.filter((r) => !r.correct).length === 0 ? (
+      {result.wrong.length === 0 ? (
         <p className="text-success">🎉 全对了！</p>
       ) : (
         <ul className="space-y-3">
-          {results
-            .filter((r) => !r.correct)
-            .map(({ q, originalAns }) => (
-              <WrongRow key={q.id} q={q} chose={originalAns} />
-            ))}
+          {result.wrong.map((w) => (
+            <WrongRow key={w.questionId} item={w} />
+          ))}
         </ul>
       )}
-      <button
-        className="btn-ghost"
-        onClick={() => {
-          setPhase('quiz');
-          setCurrentIndex(0);
-          setAnswers([]);
-        }}
-      >
+      <button className="btn-ghost" onClick={restart}>
         再做一次
       </button>
     </div>
@@ -111,32 +133,39 @@ export function QuizRunner({ questions }: { questions: Q[] }) {
 }
 
 function WrongRow({
-  q,
-  chose,
+  item,
 }: {
-  q: { stem: string; options: string[]; correctIndex: number; explanation: string };
-  chose: number;
+  item: {
+    stem: string;
+    options: string[];
+    correctIndex: number;
+    chosenIndex: number;
+    explanation: string;
+  };
 }) {
   const [open, setOpen] = useState(false);
   return (
     <li className="card">
       <button className="w-full text-left" onClick={() => setOpen(!open)}>
-        <p className="font-medium">{q.stem}</p>
+        <p className="font-medium">{item.stem}</p>
         <p className="mt-1 text-sm">
-          你选了 <span className="text-danger">{LETTER[chose]}</span>，正确答案{' '}
-          <span className="text-success">{LETTER[q.correctIndex]}</span>
+          你选了{' '}
+          <span className="text-danger">
+            {item.chosenIndex >= 0 ? LETTER[item.chosenIndex] : '(未记录)'}
+          </span>
+          ，正确答案 <span className="text-success">{LETTER[item.correctIndex]}</span>
         </p>
       </button>
       {open && (
         <div className="mt-3 space-y-2 text-sm">
           <ul>
-            {q.options.map((opt, i) => (
-              <li key={i} className={i === q.correctIndex ? 'text-success' : ''}>
+            {item.options.map((opt, i) => (
+              <li key={i} className={i === item.correctIndex ? 'text-success' : ''}>
                 {LETTER[i]} · {opt}
               </li>
             ))}
           </ul>
-          <p className="rounded bg-ink-100 p-2 text-ink-900">{q.explanation}</p>
+          <p className="rounded bg-ink-100 p-2 text-ink-900">{item.explanation}</p>
         </div>
       )}
     </li>

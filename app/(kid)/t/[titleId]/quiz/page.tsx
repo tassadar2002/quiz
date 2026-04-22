@@ -19,12 +19,12 @@ export default async function TitleQuiz({
       </Link>
       <h1 className="text-xl font-bold">{t.name}</h1>
       <QuizRunner
+        ownerType="title"
+        ownerId={titleId}
         questions={qs.map((q) => ({
           id: q.id,
           stem: q.stem,
           options: q.options as string[],
-          correctIndex: q.correctIndex,
-          explanation: q.explanation,
           category: q.category,
         }))}
       />
