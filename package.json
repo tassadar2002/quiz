@@ -17,6 +17,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.104.1",
     "drizzle-orm": "^0.45.2",
     "epub2": "^3.0.2",
     "iron-session": "^8.0.4",

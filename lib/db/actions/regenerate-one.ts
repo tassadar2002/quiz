@@ -6,7 +6,29 @@ import { requireAdmin } from '@/lib/auth/guard';
 import { regenerateOneQuestion, GenerateError } from '@/lib/ai/generate';
 import { acquireGenerateSlot } from '@/lib/cost-guard';
 import { revalidatePath } from 'next/cache';
+import { removePrefix } from '@/lib/tts/storage';
+import { jobsForQuestions, runJobs } from '@/lib/tts/precompute';
 import { z } from 'zod';
+
+async function isOwnerPublished(
+  ownerType: 'title' | 'chapter',
+  ownerId: string,
+): Promise<boolean> {
+  if (ownerType === 'title') {
+    const [row] = await db
+      .select({ status: schema.title.status })
+      .from(schema.title)
+      .where(eq(schema.title.id, ownerId))
+      .limit(1);
+    return row?.status === 'published';
+  }
+  const [row] = await db
+    .select({ status: schema.chapter.status })
+    .from(schema.chapter)
+    .where(eq(schema.chapter.id, ownerId))
+    .limit(1);
+  return row?.status === 'published';
+}
 
 const Input = z.object({
   questionId: z.string().uuid(),
@@ -80,6 +102,23 @@ export async function regenerateOne(
     if (updated.length === 0) {
       return { ok: false, error: '该题目在生成过程中被删除，操作已取消' };
     }
+
+    // Invalidate any cached audio for this question (text changed → audio is
+    // stale). If the owner is currently published, regenerate inline so the
+    // live quiz never has missing audio.
+    try {
+      await removePrefix(q.id);
+      if (await isOwnerPublished(q.ownerType, q.ownerId)) {
+        const jobs = jobsForQuestions([
+          { id: q.id, stem: fresh.stem, options: fresh.options },
+        ]);
+        await runJobs(jobs, () => {}, { force: true });
+      }
+    } catch (audioErr) {
+      // Don't fail the regen on audio issues — admin can re-publish to fix.
+      console.error('audio invalidate/regen failed', audioErr);
+    }
+
     revalidatePath(revalidateHref);
     return { ok: true };
   } catch (err) {

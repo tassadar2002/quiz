@@ -2,6 +2,7 @@
 import { useMemo, useState } from 'react';
 import { shuffle } from '@/lib/utils/shuffle';
 import { gradeQuiz, type GradeResult } from '@/lib/db/actions/grade';
+import { SpeakerButton } from './SpeakerButton';
 
 type Q = {
   id: string;
@@ -10,7 +11,12 @@ type Q = {
   category: 'vocab' | 'sentence' | 'reading';
 };
 
-type ShuffledQ = Q & { displayedOptions: string[] };
+type ShuffledQ = Q & {
+  displayedOptions: string[];
+  // Map from displayed position back to original option index, so the speaker
+  // button can request the correct cached file regardless of shuffle order.
+  displayedFields: Array<'option0' | 'option1' | 'option2'>;
+};
 
 const LETTER = ['A', 'B', 'C'];
 
@@ -24,10 +30,17 @@ export function QuizRunner({
   ownerId: string;
 }) {
   const shuffled = useMemo<ShuffledQ[]>(() => {
-    return shuffle(questions).map((q) => ({
-      ...q,
-      displayedOptions: shuffle(q.options),
-    }));
+    return shuffle(questions).map((q) => {
+      const indexed = q.options.map((text, originalIdx) => ({ text, originalIdx }));
+      const shuffledOpts = shuffle(indexed);
+      return {
+        ...q,
+        displayedOptions: shuffledOpts.map((o) => o.text),
+        displayedFields: shuffledOpts.map(
+          (o) => `option${o.originalIdx}` as 'option0' | 'option1' | 'option2',
+        ),
+      };
+    });
   }, [questions]);
 
   const [phase, setPhase] = useState<'quiz' | 'grading' | 'result'>('quiz');
@@ -79,13 +92,16 @@ export function QuizRunner({
         <div className="text-sm text-ink-700">
           第 {currentIndex + 1} / {shuffled.length} 题
         </div>
-        <h2 className="text-xl font-semibold">{q.stem}</h2>
+        <div className="flex items-start gap-2">
+          <h2 className="flex-1 text-xl font-semibold">{q.stem}</h2>
+          <SpeakerButton questionId={q.id} field="stem" ariaLabel="播放题干" />
+        </div>
         {error && <p className="text-sm text-danger">{error}</p>}
         <ul className="space-y-2">
           {q.displayedOptions.map((opt, i) => (
-            <li key={i}>
+            <li key={i} className="flex items-stretch gap-2">
               <button
-                className="card w-full text-left hover:border-primary-500"
+                className="card flex-1 text-left hover:border-primary-500"
                 onClick={() => {
                   const next = [...chosenTexts, opt];
                   setChosenTexts(next);
@@ -99,6 +115,13 @@ export function QuizRunner({
                 <span className="mr-2 text-ink-700">{LETTER[i]}.</span>
                 {opt}
               </button>
+              <div className="flex items-center">
+                <SpeakerButton
+                  questionId={q.id}
+                  field={q.displayedFields[i]!}
+                  ariaLabel={`播放选项 ${LETTER[i]}`}
+                />
+              </div>
             </li>
           ))}
         </ul>
@@ -136,6 +159,7 @@ function WrongRow({
   item,
 }: {
   item: {
+    questionId: string;
     stem: string;
     options: string[];
     correctIndex: number;
@@ -146,22 +170,46 @@ function WrongRow({
   const [open, setOpen] = useState(false);
   return (
     <li className="card">
-      <button className="w-full text-left" onClick={() => setOpen(!open)}>
-        <p className="font-medium">{item.stem}</p>
-        <p className="mt-1 text-sm">
-          你选了{' '}
-          <span className="text-danger">
-            {item.chosenIndex >= 0 ? LETTER[item.chosenIndex] : '(未记录)'}
-          </span>
-          ，正确答案 <span className="text-success">{LETTER[item.correctIndex]}</span>
-        </p>
-      </button>
+      <div className="flex items-start gap-2">
+        <button
+          className="flex-1 text-left"
+          onClick={() => setOpen(!open)}
+        >
+          <p className="font-medium">{item.stem}</p>
+          <p className="mt-1 text-sm">
+            你选了{' '}
+            <span className="text-danger">
+              {item.chosenIndex >= 0 ? LETTER[item.chosenIndex] : '(未记录)'}
+            </span>
+            ，正确答案 <span className="text-success">{LETTER[item.correctIndex]}</span>
+          </p>
+        </button>
+        <SpeakerButton
+          questionId={item.questionId}
+          field="stem"
+          size="sm"
+          ariaLabel="播放题干"
+        />
+      </div>
       {open && (
         <div className="mt-3 space-y-2 text-sm">
-          <ul>
+          <ul className="space-y-1">
             {item.options.map((opt, i) => (
-              <li key={i} className={i === item.correctIndex ? 'text-success' : ''}>
-                {LETTER[i]} · {opt}
+              <li
+                key={i}
+                className={`flex items-center gap-2 ${
+                  i === item.correctIndex ? 'text-success' : ''
+                }`}
+              >
+                <span className="flex-1">
+                  {LETTER[i]} · {opt}
+                </span>
+                <SpeakerButton
+                  questionId={item.questionId}
+                  field={`option${i}` as 'option0' | 'option1' | 'option2'}
+                  size="sm"
+                  ariaLabel={`播放选项 ${LETTER[i]}`}
+                />
               </li>
             ))}
           </ul>

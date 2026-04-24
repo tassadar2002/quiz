@@ -6,6 +6,7 @@ import { and, eq } from 'drizzle-orm';
 import { generateQuestionsStream } from '@/lib/ai/generate';
 import { acquireGenerateSlot } from '@/lib/cost-guard';
 import { wordCount } from '@/lib/utils/word-count';
+import { removePrefix } from '@/lib/tts/storage';
 import { z } from 'zod';
 
 const Input = z.object({
@@ -73,6 +74,25 @@ export async function POST(req: NextRequest) {
           }
           // done — persist and emit final event
           try {
+            // Best-effort cleanup of audio for the about-to-be-deleted
+            // questions so we don't leave orphaned mp3 files in Storage.
+            // If this fails, we log and continue — audio leaks are cheap.
+            const oldIds = await db
+              .select({ id: schema.question.id })
+              .from(schema.question)
+              .where(
+                and(
+                  eq(schema.question.ownerType, ownerType),
+                  eq(schema.question.ownerId, ownerId),
+                ),
+              );
+            for (const { id } of oldIds) {
+              try {
+                await removePrefix(id);
+              } catch (e) {
+                console.error('orphan audio cleanup failed', id, e);
+              }
+            }
             await db
               .delete(schema.question)
               .where(

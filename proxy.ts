@@ -2,7 +2,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getIronSession } from 'iron-session';
 import { sessionOptions, type AdminSession } from '@/lib/auth/session';
 
-const PROTECTED_API = ['/api/generate', '/api/regenerate-one', '/api/upload'];
+const PROTECTED_API = [
+  '/api/generate',
+  '/api/regenerate-one',
+  '/api/upload',
+  '/api/publish',
+];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

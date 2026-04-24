@@ -501,10 +501,12 @@ quiz/
 
 ### 13.4 Phase 4 · 听力与复述
 
-- **题干/选项语音播放**：孩子端每道题和每个选项旁边加小喇叭按钮，点一下用 TTS 播放该英文文本。
-  - MVP: 浏览器内建 `speechSynthesis`（免费、无后端调用；声音质量一般但能听懂）
-  - 升级版: 服务端调用 ElevenLabs / Azure / 字节豆包 TTS API 预生成音频，Supabase Storage 缓存，前端 `<audio>` 播放
-  - 存储粒度：按 `question.id + 'stem' | 'optionN'` 缓存键，同一题音频只生成一次
+- **题干/选项语音播放** ✅ 已实现：孩子端每道题和每个选项旁边都有小喇叭按钮，点一下用 TTS 播放该英文文本。
+  - 实现路径：Azure Speech Neural（`en-US-JennyNeural`，`prosody rate -10%`）+ Supabase Storage（bucket `audio`，public 读）缓存，前端 `<audio>` 播放
+  - API: `GET /api/tts?qid={uuid}&key=stem|option0|option1|option2` → `{ url }`
+  - 缓存键：`{questionId}/{key}.mp3`，cache-first；不命中才调 Azure
+  - 错题展示中的题干/选项也有喇叭按钮
+  - F0 free 配额：5h/月（约 0.5M chars），实际使用按需付费 S0 ≈ $16/百万 chars
 - **故事复述**：做完一组 quiz 后增加"复述环节"
   - 初期: 仍以选择题形式呈现，连续 3-5 道"故事顺序/情节/因果"题，每题针对故事发展的一个节点（"开头发生了什么？""接着呢？""结局？"），选项是三个不同版本的情节复述
   - AI 生成: 新 category `retell`，管理员生成完 10 道基础题后可额外"生成复述题"，和基础题同一数据模型
