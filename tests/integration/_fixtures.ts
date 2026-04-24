@@ -9,7 +9,7 @@ export type Fixture = {
   cleanup: () => Promise<void>;
 };
 
-const SAMPLE_SOURCE = `Once upon a time, in a land far far away, there lived a brave little fox who loved adventures and exploring the deep forest with his three best friends. They went on many quests together and learned about kindness.`;
+const SAMPLE_SOURCE = `Once upon a time, in a land far far away, there lived a brave little fox who loved adventures and exploring the deep forest with his three best friends. They went on many quests together and learned about kindness. `.repeat(2);
 
 export async function createTitleWithQuestions(opts: {
   status?: 'draft' | 'published';
