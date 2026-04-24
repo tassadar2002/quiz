@@ -1,4 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
+import {
+  fakePublicUrl,
+  fakeExists,
+  fakeUpload,
+  fakeRemovePrefix,
+} from './storage-fake';
 
 const BUCKET = 'audio';
 
@@ -39,11 +45,17 @@ async function ensureBucket() {
   _bucketEnsured = true;
 }
 
+function useFake() {
+  return process.env.USE_FAKE_STORAGE === 'true';
+}
+
 export function publicUrl(path: string): string {
+  if (useFake()) return fakePublicUrl(path);
   return client().storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
 export async function exists(path: string): Promise<boolean> {
+  if (useFake()) return fakeExists(path);
   await ensureBucket();
   const slash = path.lastIndexOf('/');
   const dir = slash >= 0 ? path.slice(0, slash) : '';
@@ -57,6 +69,7 @@ export async function exists(path: string): Promise<boolean> {
 }
 
 export async function upload(path: string, buf: Buffer): Promise<void> {
+  if (useFake()) return fakeUpload(path, buf);
   await ensureBucket();
   const { error } = await client()
     .storage.from(BUCKET)
@@ -68,6 +81,7 @@ export async function upload(path: string, buf: Buffer): Promise<void> {
 }
 
 export async function removePrefix(prefix: string): Promise<void> {
+  if (useFake()) return fakeRemovePrefix(prefix);
   await ensureBucket();
   const { data, error: listErr } = await client()
     .storage.from(BUCKET)
