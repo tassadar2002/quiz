@@ -12,9 +12,9 @@ export type CallLogEntry =
   | { kind: 'storage'; op: StorageOp; path: string };
 
 export const fakeControl = {
-  ttsFailNextN: 0 as number,
+  ttsFailNextN: 0,
   ttsFailForText: new Set<string>(),
-  storageFailNextN: 0 as number,
+  storageFailNextN: 0,
   storageFailForPath: new Set<string>(),
   calls: [] as CallLogEntry[],
 
