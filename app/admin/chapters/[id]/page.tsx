@@ -31,6 +31,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ id: st
           ownerType="chapter"
           ownerId={id}
           reviewHref={`/admin/chapters/${id}/review`}
+          published={c.status === 'published'}
         />
         <a
           href={`/admin/chapters/${id}/review`}

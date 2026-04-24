@@ -4,6 +4,7 @@ import { db, schema } from '@/lib/db/client';
 import { and, asc, eq } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/auth/guard';
 import { revalidatePath } from 'next/cache';
+import { removePrefix } from '@/lib/tts/storage';
 import { z } from 'zod';
 
 type OwnerType = 'title' | 'chapter';
@@ -62,6 +63,11 @@ export async function deleteQuestion(id: string, revalidateHref: string) {
     throw new Error(
       '该题目不存在，可能已被重新生成覆盖。请刷新后再试。',
     );
+  }
+  try {
+    await removePrefix(id);
+  } catch (e) {
+    console.error('audio cleanup failed for deleted question', id, e);
   }
   revalidatePath(revalidateHref);
 }

@@ -22,20 +22,35 @@ const LETTER = ['A', 'B', 'C'];
 export function QuestionReviewList({
   items,
   revalidateHref,
+  published = false,
 }: {
   items: Q[];
   revalidateHref: string;
+  published?: boolean;
 }) {
   return (
     <ul className="space-y-3">
       {items.map((q) => (
-        <QuestionRow key={q.id} q={q} revalidateHref={revalidateHref} />
+        <QuestionRow
+          key={q.id}
+          q={q}
+          revalidateHref={revalidateHref}
+          published={published}
+        />
       ))}
     </ul>
   );
 }
 
-function QuestionRow({ q, revalidateHref }: { q: Q; revalidateHref: string }) {
+function QuestionRow({
+  q,
+  revalidateHref,
+  published,
+}: {
+  q: Q;
+  revalidateHref: string;
+  published: boolean;
+}) {
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
   const [stem, setStem] = useState(q.stem);
@@ -159,7 +174,10 @@ function QuestionRow({ q, revalidateHref }: { q: Q; revalidateHref: string }) {
           <button
             className="btn-ghost text-xs"
             onClick={() => setRegenOpen((o) => !o)}
-            disabled={regenPending}
+            disabled={regenPending || published}
+            title={
+              published ? '已发布的题目无法重新生成，请先撤回发布' : undefined
+            }
           >
             {regenOpen ? '取消重生' : '重新生成'}
           </button>

@@ -7,7 +7,6 @@ import { regenerateOneQuestion, GenerateError } from '@/lib/ai/generate';
 import { acquireGenerateSlot } from '@/lib/cost-guard';
 import { revalidatePath } from 'next/cache';
 import { removePrefix } from '@/lib/tts/storage';
-import { jobsForQuestions, runJobs } from '@/lib/tts/precompute';
 import { z } from 'zod';
 
 async function isOwnerPublished(
@@ -48,6 +47,15 @@ export async function regenerateOne(
     .where(eq(schema.question.id, data.questionId))
     .limit(1);
   if (!q) return { ok: false, error: '该题目不存在，可能已被覆盖。请刷新。' };
+
+  // Same rule as full regen: published owners are locked; admin must
+  // unpublish first to avoid breaking any kid mid-quiz.
+  if (await isOwnerPublished(q.ownerType, q.ownerId)) {
+    return {
+      ok: false,
+      error: '已发布的题目无法重新生成。请先点击「撤回发布」。',
+    };
+  }
 
   const [sm] = await db
     .select()
@@ -103,20 +111,14 @@ export async function regenerateOne(
       return { ok: false, error: '该题目在生成过程中被删除，操作已取消' };
     }
 
-    // Invalidate any cached audio for this question (text changed → audio is
-    // stale). If the owner is currently published, regenerate inline so the
-    // live quiz never has missing audio.
+    // Invalidate any leftover audio from a previous publish of this
+    // question. Owner is guaranteed draft here (checked above), so a
+    // re-publish will regenerate the 4 missing files via the precompute
+    // cache miss.
     try {
       await removePrefix(q.id);
-      if (await isOwnerPublished(q.ownerType, q.ownerId)) {
-        const jobs = jobsForQuestions([
-          { id: q.id, stem: fresh.stem, options: fresh.options },
-        ]);
-        await runJobs(jobs, () => {}, { force: true });
-      }
     } catch (audioErr) {
-      // Don't fail the regen on audio issues — admin can re-publish to fix.
-      console.error('audio invalidate/regen failed', audioErr);
+      console.error('audio invalidate failed', audioErr);
     }
 
     revalidatePath(revalidateHref);

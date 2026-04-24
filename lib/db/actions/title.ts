@@ -4,6 +4,7 @@ import { db, schema } from '@/lib/db/client';
 import { and, eq, asc, sql } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/auth/guard';
 import { revalidatePath } from 'next/cache';
+import { cascadeOwners, type Owner } from './_cascade';
 import { z } from 'zod';
 
 const MIN_QUESTIONS_TO_PUBLISH = 3;
@@ -49,6 +50,17 @@ export async function createTitle(form: FormData) {
 
 export async function deleteTitle(id: string, seriesId: string) {
   await requireAdmin();
+  // Capture chapter ids BEFORE the FK cascade nukes them — we need their
+  // ids to clean up their polymorphic question + source_material rows.
+  const chapters = await db
+    .select({ id: schema.chapter.id })
+    .from(schema.chapter)
+    .where(eq(schema.chapter.titleId, id));
+  const owners: Owner[] = [
+    { type: 'title', id },
+    ...chapters.map((c) => ({ type: 'chapter' as const, id: c.id })),
+  ];
+  await cascadeOwners(owners);
   await db.delete(schema.title).where(eq(schema.title.id, id));
   revalidatePath(`/admin/series/${seriesId}`);
   revalidatePath('/');

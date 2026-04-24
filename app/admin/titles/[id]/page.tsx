@@ -41,6 +41,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
               ownerType="title"
               ownerId={t.id}
               reviewHref={`/admin/titles/${t.id}/review`}
+              published={t.status === 'published'}
             />
             <a
               href={`/admin/titles/${t.id}/review`}

@@ -4,6 +4,7 @@ import { db, schema } from '@/lib/db/client';
 import { and, eq, asc, sql } from 'drizzle-orm';
 import { requireAdmin } from '@/lib/auth/guard';
 import { revalidatePath } from 'next/cache';
+import { cascadeOwners } from './_cascade';
 import { z } from 'zod';
 
 const MIN_QUESTIONS_TO_PUBLISH = 3;
@@ -54,6 +55,7 @@ export async function createChapter(form: FormData) {
 
 export async function deleteChapter(id: string, titleId: string) {
   await requireAdmin();
+  await cascadeOwners([{ type: 'chapter', id }]);
   await db.delete(schema.chapter).where(eq(schema.chapter.id, id));
   revalidatePath(`/admin/titles/${titleId}`);
   revalidatePath(`/t/${titleId}`);

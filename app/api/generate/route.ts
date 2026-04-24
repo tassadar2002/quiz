@@ -27,6 +27,35 @@ export async function POST(req: NextRequest) {
   }
   const { ownerType, ownerId } = parse.data;
 
+  // Reject regen on published owners — kids may be mid-quiz; replacing
+  // questions underneath them yields broken submissions. Admin must
+  // unpublish first.
+  if (ownerType === 'title') {
+    const [t] = await db
+      .select({ status: schema.title.status })
+      .from(schema.title)
+      .where(eq(schema.title.id, ownerId))
+      .limit(1);
+    if (t?.status === 'published') {
+      return NextResponse.json(
+        { error: '已发布的题目无法重新生成。请先点击「撤回发布」。' },
+        { status: 409 },
+      );
+    }
+  } else {
+    const [c] = await db
+      .select({ status: schema.chapter.status })
+      .from(schema.chapter)
+      .where(eq(schema.chapter.id, ownerId))
+      .limit(1);
+    if (c?.status === 'published') {
+      return NextResponse.json(
+        { error: '已发布的章节无法重新生成。请先撤回发布。' },
+        { status: 409 },
+      );
+    }
+  }
+
   const [sm] = await db
     .select()
     .from(schema.sourceMaterial)
@@ -86,13 +115,16 @@ export async function POST(req: NextRequest) {
                   eq(schema.question.ownerId, ownerId),
                 ),
               );
-            for (const { id } of oldIds) {
-              try {
-                await removePrefix(id);
-              } catch (e) {
-                console.error('orphan audio cleanup failed', id, e);
-              }
-            }
+            // Run all Storage deletes concurrently so cleanup is bounded by
+            // the slowest single call (~300ms), not summed (was blocking
+            // generate for ~3s on a 10-question regen).
+            await Promise.all(
+              oldIds.map(({ id }) =>
+                removePrefix(id).catch((e) =>
+                  console.error('orphan audio cleanup failed', id, e),
+                ),
+              ),
+            );
             await db
               .delete(schema.question)
               .where(

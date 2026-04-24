@@ -39,7 +39,11 @@ export default async function ChapterReview({
       {items.length === 0 ? (
         <p className="text-ink-700">还没有生成题目。</p>
       ) : (
-        <QuestionReviewList items={items} revalidateHref={href} />
+        <QuestionReviewList
+          items={items}
+          revalidateHref={href}
+          published={c.status === 'published'}
+        />
       )}
     </div>
   );

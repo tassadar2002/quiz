@@ -7,11 +7,13 @@ export function GenerateButton({
   ownerId,
   disabled,
   reviewHref,
+  published = false,
 }: {
   ownerType: 'title' | 'chapter';
   ownerId: string;
   disabled?: boolean;
   reviewHref: string;
+  published?: boolean;
 }) {
   const [running, setRunning] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -97,9 +99,19 @@ export function GenerateButton({
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-3">
-        <button className="btn-primary" onClick={onClick} disabled={disabled || running}>
+        <button
+          className="btn-primary"
+          onClick={onClick}
+          disabled={disabled || running || published}
+          title={published ? '已发布的题目无法重新生成，请先撤回发布' : undefined}
+        >
           {running ? 'AI 生成中…' : '生成 10 道题目'}
         </button>
+        {published && (
+          <span className="text-sm text-ink-700">
+            已发布 — 如需重新生成，请到「审核题目」页点击「撤回发布」
+          </span>
+        )}
         {count !== null && !err && (
           <span className="text-sm text-success">✓ 生成 {count} 道题，即将跳转…</span>
         )}
