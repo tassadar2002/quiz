@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/publish/route';
 import { db, schema } from '@/lib/db/client';
 import { eq } from 'drizzle-orm';
@@ -11,8 +12,8 @@ afterEach(async () => {
   fx = null;
 });
 
-function publishReq(ownerId: string): Request {
-  return new Request('http://test/api/publish', {
+function publishReq(ownerId: string): NextRequest {
+  return new NextRequest('http://test/api/publish', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ ownerType: 'title', ownerId }),
