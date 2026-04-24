@@ -1,10 +1,8 @@
 import { beforeEach } from 'vitest';
 
-// Set env BEFORE any module that reads process.env.USE_FAKE_* is imported.
-// vitest.config.ts → test.setupFiles ensures this runs before user test files.
-process.env.USE_FAKE_TTS = 'true';
-process.env.USE_FAKE_STORAGE = 'true';
-
+// USE_FAKE_TTS / USE_FAKE_STORAGE / USE_FAKE_AI defaults live in
+// vitest.config.ts (env block, via withDefault). They're 'true' by default
+// and a shell override like `USE_FAKE_TTS=false pnpm test` still wins.
 beforeEach(async () => {
   const { fakeControl } = await import('@/lib/tts/fake-control');
   const { fakeStorageReset } = await import('@/lib/tts/storage-fake');
