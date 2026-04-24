@@ -10,12 +10,7 @@
 
 **Reference spec:** `docs/superpowers/specs/2026-04-24-fake-services-for-ci-design.md`
 
-**Prereq for executor:** A Postgres database called `quiz_test` must exist and have migrations applied. From repo root:
-```bash
-createdb -h localhost -U quiz quiz_test
-DATABASE_URL=postgresql://quiz:quiz@localhost:5432/quiz_test pnpm drizzle-kit push
-```
-(If the DB already exists, this is a no-op.)
+**Prereq for executor:** Tests run against the dev database `quiz` (per user choice). Integration test fixtures use `crypto.randomUUID()` for all owner ids so they don't collide with dev data, and each test's `afterEach` calls `cleanup()` to delete its rows. No separate `quiz_test` DB needed.
 
 ---
 
@@ -469,7 +464,7 @@ export default defineConfig({
       ADMIN_PASSWORD: withDefault('ADMIN_PASSWORD', 'test-password'),
       DATABASE_URL: withDefault(
         'DATABASE_URL',
-        'postgresql://quiz:quiz@localhost:5432/quiz_test',
+        'postgresql://quiz:quiz@localhost:5432/quiz',
       ),
       LLM_BASE_URL: withDefault('LLM_BASE_URL', 'https://example.invalid'),
       LLM_API_KEY: withDefault('LLM_API_KEY', 'test'),
