@@ -53,4 +53,30 @@ describe('/api/generate', () => {
       expect(removed).toContain(qid);
     }
   });
+
+  it('completes regen even when orphan audio cleanup throws (best-effort)', async () => {
+    fx = await createTitleWithQuestions({ status: 'draft', questionCount: 3 });
+    // Force every removePrefix call for this title's questions to throw.
+    for (const qid of fx.questionIds) {
+      fakeControl.storageFailForPath.add(qid);
+    }
+
+    const res = await POST(generateReq(fx.titleId));
+    const events = await readSseEvents(res);
+
+    // Should still get 'done' (no error event from cleanup failures).
+    const types = events.map((e: any) => e.type);
+    expect(types[types.length - 1]).toBe('done');
+    expect(types).not.toContain('error');
+
+    // New questions inserted; old ids no longer exist in DB.
+    const remaining = await db
+      .select({ id: schema.question.id })
+      .from(schema.question)
+      .where(eq(schema.question.ownerId, fx.titleId));
+    expect(remaining.length).toBeGreaterThan(0);
+    for (const oldId of fx.questionIds) {
+      expect(remaining.find((r) => r.id === oldId)).toBeUndefined();
+    }
+  });
 });

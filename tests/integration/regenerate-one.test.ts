@@ -3,6 +3,7 @@ import { db, schema } from '@/lib/db/client';
 import { eq } from 'drizzle-orm';
 import { regenerateOne } from '@/lib/db/actions/regenerate-one';
 import { fakeUpload, fakeExists } from '@/lib/tts/storage-fake';
+import { fakeControl } from '@/lib/tts/fake-control';
 import { createTitleWithQuestions, type Fixture } from './_fixtures';
 
 let fx: Fixture | null = null;
@@ -48,5 +49,29 @@ describe('regenerateOne', () => {
       .from(schema.question)
       .where(eq(schema.question.id, q0));
     expect(row?.id).toBe(q0);
+  });
+
+  it('returns ok=true even when audio invalidation throws (best-effort)', async () => {
+    fx = await createTitleWithQuestions({ status: 'draft', questionCount: 1 });
+    const qid = fx.questionIds[0]!;
+    await fakeUpload(`${qid}/stem.mp3`, Buffer.from('x'));
+
+    // Force the removePrefix call inside regenerateOne to throw — this
+    // exercises the catch around audio invalidation in regenerate-one.ts.
+    fakeControl.storageFailForPath.add(qid);
+
+    const res = await regenerateOne(
+      { questionId: qid },
+      '/admin/titles/x/review',
+    );
+    // Storage failure must not surface to the caller.
+    expect(res.ok).toBe(true);
+
+    // Question still updated in DB regardless.
+    const [row] = await db
+      .select({ id: schema.question.id })
+      .from(schema.question)
+      .where(eq(schema.question.id, qid));
+    expect(row?.id).toBe(qid);
   });
 });
