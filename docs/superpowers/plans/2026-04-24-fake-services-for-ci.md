@@ -657,6 +657,12 @@ Add a dispatch at the top of each public function. Full file after edit:
 ```ts
 // lib/tts/storage.ts
 import { createClient } from '@supabase/supabase-js';
+import {
+  fakePublicUrl,
+  fakeExists,
+  fakeUpload,
+  fakeRemovePrefix,
+} from './storage-fake';
 
 const BUCKET = 'audio';
 
@@ -700,19 +706,12 @@ function useFake() {
 }
 
 export function publicUrl(path: string): string {
-  if (useFake()) {
-    // require() to keep this synchronous (publicUrl is not async).
-    const { fakePublicUrl } = require('./storage-fake') as typeof import('./storage-fake');
-    return fakePublicUrl(path);
-  }
+  if (useFake()) return fakePublicUrl(path);
   return client().storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
 export async function exists(path: string): Promise<boolean> {
-  if (useFake()) {
-    const { fakeExists } = await import('./storage-fake');
-    return fakeExists(path);
-  }
+  if (useFake()) return fakeExists(path);
   await ensureBucket();
   const slash = path.lastIndexOf('/');
   const dir = slash >= 0 ? path.slice(0, slash) : '';
@@ -726,10 +725,7 @@ export async function exists(path: string): Promise<boolean> {
 }
 
 export async function upload(path: string, buf: Buffer): Promise<void> {
-  if (useFake()) {
-    const { fakeUpload } = await import('./storage-fake');
-    return fakeUpload(path, buf);
-  }
+  if (useFake()) return fakeUpload(path, buf);
   await ensureBucket();
   const { error } = await client()
     .storage.from(BUCKET)
@@ -741,10 +737,7 @@ export async function upload(path: string, buf: Buffer): Promise<void> {
 }
 
 export async function removePrefix(prefix: string): Promise<void> {
-  if (useFake()) {
-    const { fakeRemovePrefix } = await import('./storage-fake');
-    return fakeRemovePrefix(prefix);
-  }
+  if (useFake()) return fakeRemovePrefix(prefix);
   await ensureBucket();
   const { data, error: listErr } = await client()
     .storage.from(BUCKET)
@@ -757,7 +750,7 @@ export async function removePrefix(prefix: string): Promise<void> {
 }
 ```
 
-Note on the sync `require` for `publicUrl`: it's a sync function and can't `await import`. Using CommonJS `require` works at runtime in Node. TypeScript's `tsc --noEmit` accepts it because we cast the return type.
+Note: static imports of the fake functions match the existing `USE_FAKE_AI` convention (`lib/ai/generate.ts:14`). The fake module is server-only and tiny, so bundling cost is negligible. This also keeps `publicUrl` synchronous without a CommonJS `require` workaround.
 
 - [ ] **Step 4: Run test to verify it passes**
 
