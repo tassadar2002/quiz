@@ -121,7 +121,10 @@ export async function regenerateOne(
       console.error('audio invalidate failed', audioErr);
     }
 
-    revalidatePath(revalidateHref);
+    // revalidatePath requires Next's request store, which is absent when
+    // this action is invoked by vitest. Swallow the invariant — same
+    // pattern as /api/generate and /api/publish.
+    try { revalidatePath(revalidateHref); } catch {}
     return { ok: true };
   } catch (err) {
     const msg = err instanceof GenerateError ? err.message : 'AI 生成失败';

@@ -1,14 +1,9 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { db, schema } from '@/lib/db/client';
 import { eq } from 'drizzle-orm';
 import { regenerateOne } from '@/lib/db/actions/regenerate-one';
 import { fakeUpload, fakeExists } from '@/lib/tts/storage-fake';
 import { createTitleWithQuestions, type Fixture } from './_fixtures';
-
-// Mock revalidatePath to avoid Next.js cache errors in tests
-vi.mock('next/cache', () => ({
-  revalidatePath: vi.fn(),
-}));
 
 let fx: Fixture | null = null;
 afterEach(async () => {
