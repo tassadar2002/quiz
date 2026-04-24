@@ -1,3 +1,5 @@
+import { fakeSynthesize } from './azure-fake';
+
 const VOICE = 'en-US-JennyNeural';
 const RATE = '-10%';
 
@@ -16,7 +18,6 @@ function buildSsml(text: string): string {
 
 export async function synthesize(text: string): Promise<Buffer> {
   if (process.env.USE_FAKE_TTS === 'true') {
-    const { fakeSynthesize } = await import('./azure-fake');
     return fakeSynthesize(text);
   }
   const key = process.env.AZURE_SPEECH_KEY;
